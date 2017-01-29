@@ -28,11 +28,23 @@ def build_page(textarea_content):
 
     email_label = "<label>Email</label>"
     email_entry = "<textarea name= email></textarea>"
-    
+
+    submit = "<input type='submit'/>"
+    form = ("<form method= 'post'>" + user_label + user_entry + "<br>" +
+            password_label + password_entry + "<br>" + verify_label +
+            verify_entry + "<br>" + email_label + email_entry + "<br>" +
+            submit + "</form>")
+
+    return form
+
 class MainHandler(webapp2.RequestHandler):
     def get(self):
         content = build_page("")
         self.response.write(content)
+
+    # def post(self):
+        # content = build_page("")
+        # self.response.write content
 
 app = webapp2.WSGIApplication([
     ('/', MainHandler)
