@@ -15,37 +15,82 @@
 # limitations under the License.
 #
 import webapp2
+import re
+import cgi
+import os
+import jinja2
 
-def build_page(textarea_content):
-    user_label = "<label>Username</label>"
-    user_entry = "<textarea name= username></textarea>"
+template_dir = os.path.join(os.path.dirname(__file__), 'templates')
+jinja_env = jinja2.Environment(loader = jinja2.FileSystemLoader(template_dir),
+                               autoescape = True)
 
-    password_label = "<label>Password</label>"
-    password_entry = "<textarea name= password></textarea>"
-
-    verify_label = "<label>Verify Password</label>"
-    verify_entry = "<textarea name= verify></textarea>"
-
-    email_label = "<label>Email</label>"
-    email_entry = "<textarea name= email></textarea>"
-
-    submit = "<input type='submit'/>"
-    form = ("<form method= 'post'>" + user_label + user_entry + "<br>" +
-            password_label + password_entry + "<br>" + verify_label +
-            verify_entry + "<br>" + email_label + email_entry + "<br>" +
-            submit + "</form>")
-
-    return form
+def render_str(template, **params):
+    t = jinja_env.get_template(template)
+    return t.render(params)
 
 class MainHandler(webapp2.RequestHandler):
-    def get(self):
-        content = build_page("")
-        self.response.write(content)
+    def render(self, template, **kw):
+        self.response.out.write(render_str(template, **kw))
 
-    # def post(self):
-        # content = build_page("")
-        # self.response.write content
+    def write(self, *a, **kw):
+        self.response.out.write(*a, **kw)
+
+USER_RE = re.compile(r"^[a-zA-Z0-9_-]{3,20}$")
+def user_valid(username):
+    return username and USER_RE.match(username)
+
+PASS_RE = re.compile(r"^.{3,20}$")
+def password_valid(password):
+    return password and PASS_RE.match(password)
+
+EMAIL_RE = re.compile(r"^[\S]+@[\S]+.[\S]+$")
+def email_valid(email):
+    return not email or EMAIL_RE.match(email)
+
+class Signup(MainHandler):
+    def get(self):
+        self.render("signup.html")
+
+    def post(self):
+        have_error = False
+        username = self.request.get('username')
+        password = self.request.get('password')
+        verify = self.request.get('verify')
+        email = self.request.get('email')
+
+        params = dict(username = username,
+                      email = email)
+
+        if not user_valid(username):
+            params['username_error'] = "That's not a valid username."
+            have_error = True
+
+        if not password_valid(password):
+            params['password_error'] = "That was not a valid password."
+            have_error = True
+        elif password != verify:
+            params['verify_error'] = "Those passwords did not match."
+            have_error = True
+
+        if not email_valid(email):
+            params['email_error'] = "That's not a valid email."
+            have_error = True
+
+        if have_error:
+            self.render("signup.html", **params)
+        else:
+            self.redirect('/Welcome?username=' + username)
+
+class WelcomeHandler(MainHandler):
+    def get(self):
+        username = self.request.get("username")
+        if user_valid(username):
+            self.render("welcome.html", username = username)
+        else:
+            self.redirect('/')
+
 
 app = webapp2.WSGIApplication([
-    ('/', MainHandler)
+    ('/', Signup),
+    ('/Welcome', WelcomeHandler)
 ], debug=True)
